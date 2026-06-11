@@ -1,0 +1,49 @@
+name: AutoSellChests
+version: '2.9.0-IR-Shop'
+main: com.italiarevenge.iRSellChest.AutoSellChests
+description: AutoSellChests ported to work with IR-Shop
+api-version: '1.19'
+has-open-classloader: false
+folia-supported: true
+
+dependencies:
+  server:
+    IR-Shop:
+      required: true
+    Vault:
+      required: true
+
+    Essentials:
+      required: false
+    CMI:
+      required: false
+
+    DecentHolograms:
+      required: false
+    FancyHolograms:
+      required: false
+
+permissions:
+  autosellchests.use:
+    default: true
+    description: 'Allows to use the /autosellchests command'
+  autosellchests.place:
+    default: true
+    description: 'Allows to place a sell chest'
+  autosellchests.pickup:
+    default: true
+    description: 'Allows to pick up your own sell chest'
+  autosellchests.show.all:
+    description: 'Allows to view info of a SellChest from a different player'
+  autosellchests.maxchests.override:
+    description: 'Allows to place an infinite amount of chests'
+  autosellchests.break:
+    description: 'Allows to break someone else chest'
+  autosellchests.give:
+    description: 'Gives access to the /asc give command'
+  autosellchests.view:
+    description: 'Gives access to the /asc view command'
+  autosellchests.reload:
+    description: 'Gives access to the /asc reload command'
+  autosellchests.remove:
+    description: 'Gives access to the /asc remove command'

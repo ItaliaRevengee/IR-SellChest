@@ -38,3 +38,9 @@ permissions:
     description: "Gives access to the /asc reload command"
   autosellchests.remove:
     description: "Gives access to the /asc remove command"
+  irshop.sell.1.25:
+    description: "Aggiunge +0.25x al moltiplicatore di vendita quando il proprietario e' online"
+  irshop.sell.1.5:
+    description: "Aggiunge +0.5x al moltiplicatore di vendita quando il proprietario e' online"
+  irshop.sell.2:
+    description: "Aggiunge +1.0x al moltiplicatore di vendita quando il proprietario e' online"

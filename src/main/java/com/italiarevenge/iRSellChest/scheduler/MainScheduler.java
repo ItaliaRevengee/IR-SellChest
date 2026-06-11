@@ -94,9 +94,22 @@ public class MainScheduler {
                 }
             }
 
-            if (UpgradeManager.multiplierUpgrades) {
-                total *= chest.getMultiplier();
+            double effectiveMultiplier = UpgradeManager.multiplierUpgrades ? chest.getMultiplier() : 1.0;
+
+            if (owner.isOnline()) {
+                Player onlinePlayer = (Player) owner;
+                double permBonus = 0.0;
+                if (onlinePlayer.hasPermission("irshop.sell.2")) {
+                    permBonus = 1.0;
+                } else if (onlinePlayer.hasPermission("irshop.sell.1.5")) {
+                    permBonus = 0.5;
+                } else if (onlinePlayer.hasPermission("irshop.sell.1.25")) {
+                    permBonus = 0.25;
+                }
+                effectiveMultiplier += permBonus;
             }
+
+            total *= effectiveMultiplier;
 
             // update inventory (remove sold items)
             block.getInventory().setContents(items);

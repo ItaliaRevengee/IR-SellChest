@@ -100,6 +100,8 @@ public class MainScheduler {
                 } else if (onlinePlayer.hasPermission("irshop.sell.1.25")) {
                     effectiveMultiplier += 0.25;
                 }
+            } else {
+                effectiveMultiplier += IRShopHook.getPermissionBonus(owner) / 2.0;
             }
 
             total *= effectiveMultiplier;

@@ -6,6 +6,7 @@ import com.italiarevenge.iRShop.model.ShopCategory;
 import com.italiarevenge.iRShop.model.ShopItem;
 import com.italiarevenge.iRShop.util.ItemMatcher;
 import net.milkbowl.vault.economy.Economy;
+import net.milkbowl.vault.permission.Permission;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -18,6 +19,7 @@ import java.util.List;
 public class IRShopHook {
 
     private static Economy economy;
+    private static Permission permission;
     private static volatile List<ShopItem> sellableCache = null;
 
     public static boolean setupEconomy(JavaPlugin plugin) {
@@ -26,6 +28,20 @@ public class IRShopHook {
         if (rsp == null) return false;
         economy = rsp.getProvider();
         return economy != null;
+    }
+
+    public static void setupPermissions(JavaPlugin plugin) {
+        RegisteredServiceProvider<Permission> rsp =
+                plugin.getServer().getServicesManager().getRegistration(Permission.class);
+        if (rsp != null) permission = rsp.getProvider();
+    }
+
+    public static double getPermissionBonus(OfflinePlayer player) {
+        if (permission == null) return 0.0;
+        if (permission.playerHas((String) null, player, "irshop.sell.2")) return 1.0;
+        if (permission.playerHas((String) null, player, "irshop.sell.1.5")) return 0.5;
+        if (permission.playerHas((String) null, player, "irshop.sell.1.25")) return 0.25;
+        return 0.0;
     }
 
     public static Economy getEconomy() {

@@ -96,6 +96,7 @@ public final class AutoSellChests extends JavaPlugin {
             this.getServer().getPluginManager().disablePlugin((Plugin) this);
             return;
         }
+        IRShopHook.setupPermissions(this);
 
         Metrics metrics = new Metrics(this, 15605);
         metrics.addCustomChart(new Metrics.SimplePie("esgui_ver", () -> "IR-Shop"));

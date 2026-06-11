@@ -1,7 +1,7 @@
-name: AutoSellChests
+name: IR-SellChest
 version: '2.9.0-IR-Shop'
 main: com.italiarevenge.iRSellChest.AutoSellChests
-description: AutoSellChests ported to work with IR-Shop
+description: IR-SellChest (AutoSellChests fork)
 api-version: '1.19'
 has-open-classloader: false
 folia-supported: true

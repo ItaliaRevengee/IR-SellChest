@@ -59,4 +59,4 @@ Desktop.ini
 *.zip
 *.tar.gz
 *.rar
-.claude/settings.json
+.claude/

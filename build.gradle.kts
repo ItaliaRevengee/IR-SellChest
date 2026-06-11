@@ -8,7 +8,7 @@ plugins {
 
 group = "com.italiarevenge"
 version = project.property("pluginVersion") as String
-description = "AutoSellChests ported to work with IR-Shop"
+description = "IR-SellChest (AutoSellChests fork)"
 
 repositories {
     mavenCentral()

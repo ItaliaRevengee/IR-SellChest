@@ -1,9 +1,9 @@
-name: AutoSellChests
+name: IR-SellChest
 version: ${version}
 main: com.italiarevenge.iRSellChest.AutoSellChests
 api-version: 1.16
-authors: [ Gypopo ]
-description: AutoSellChests ported to work with IR-Shop
+authors: [ Gypopo, ItaliaRevenge ]
+description: IR-SellChest (AutoSellChests fork)
 depend:
   - IR-Shop
   - Vault

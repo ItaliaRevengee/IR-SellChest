@@ -81,11 +81,6 @@ public class MainScheduler {
 
             if (total <= 0) return;
 
-            int soldCount = 0;
-            for (ItemStack item : block.getInventory().getContents()) {
-                if (item != null && !item.getType().isAir()) soldCount += item.getAmount();
-            }
-            // count the items actually removed (those set to null in items[])
             int removed = 0;
             ItemStack[] original = block.getInventory().getContents();
             for (int i = 0; i < items.length; i++) {
@@ -98,15 +93,13 @@ public class MainScheduler {
 
             if (owner.isOnline()) {
                 Player onlinePlayer = (Player) owner;
-                double permBonus = 0.0;
                 if (onlinePlayer.hasPermission("irshop.sell.2")) {
-                    permBonus = 1.0;
+                    effectiveMultiplier += 1.0;
                 } else if (onlinePlayer.hasPermission("irshop.sell.1.5")) {
-                    permBonus = 0.5;
+                    effectiveMultiplier += 0.5;
                 } else if (onlinePlayer.hasPermission("irshop.sell.1.25")) {
-                    permBonus = 0.25;
+                    effectiveMultiplier += 0.25;
                 }
-                effectiveMultiplier += permBonus;
             }
 
             total *= effectiveMultiplier;

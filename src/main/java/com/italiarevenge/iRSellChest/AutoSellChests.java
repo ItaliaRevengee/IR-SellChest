@@ -131,11 +131,14 @@ public final class AutoSellChests extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (this.manager != null) {
-            this.manager.disable();
-        }
-        if (this.database != null) {
-            this.database.closeConnection();
+        try {
+            if (this.manager != null) {
+                this.manager.disable();
+            }
+        } finally {
+            if (this.database != null) {
+                this.database.closeConnection();
+            }
         }
     }
 

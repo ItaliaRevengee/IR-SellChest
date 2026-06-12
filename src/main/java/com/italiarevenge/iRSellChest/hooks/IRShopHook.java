@@ -14,13 +14,16 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import org.bukkit.Material;
 
 public class IRShopHook {
 
     private static Economy economy;
     private static Permission permission;
-    private static volatile List<ShopItem> sellableCache = null;
+    private static volatile Map<Material, List<ShopItem>> sellableByMaterial = null;
 
     public static boolean setupEconomy(JavaPlugin plugin) {
         RegisteredServiceProvider<Economy> rsp =
@@ -50,21 +53,24 @@ public class IRShopHook {
 
     /** Call this when IR-Shop reloads its shop data so the cache is rebuilt on next sell. */
     public static void invalidateCache() {
-        sellableCache = null;
+        sellableByMaterial = null;
     }
 
     public static double getSellValue(ItemStack[] items) {
         IRShop shop = IRShop.get();
         if (shop == null) return 0;
 
-        List<ShopItem> sellableItems = getCachedSellableItems(shop);
+        Map<Material, List<ShopItem>> cache = getCachedByMaterial(shop);
         double total = 0;
 
         for (int i = 0; i < items.length; i++) {
             ItemStack stack = items[i];
             if (stack == null || stack.getType().isAir()) continue;
 
-            for (ShopItem shopItem : sellableItems) {
+            List<ShopItem> candidates = cache.get(stack.getType());
+            if (candidates == null) continue;
+
+            for (ShopItem shopItem : candidates) {
                 if (ItemMatcher.matchesStack(stack, shopItem)) {
                     total += shopItem.getSellPrice() * stack.getAmount();
                     items[i] = null;
@@ -75,25 +81,27 @@ public class IRShopHook {
         return total;
     }
 
-    private static List<ShopItem> getCachedSellableItems(IRShop shop) {
-        List<ShopItem> cached = sellableCache;
+    private static Map<Material, List<ShopItem>> getCachedByMaterial(IRShop shop) {
+        Map<Material, List<ShopItem>> cached = sellableByMaterial;
         if (cached != null) return cached;
 
-        List<ShopItem> result = new ArrayList<>();
+        Map<Material, List<ShopItem>> result = new HashMap<>();
         for (Shop s : shop.getShopLoader().getShops().values()) {
             for (ShopCategory cat : s.getCategories()) {
                 for (ShopItem item : cat.getItems()) {
                     if (item.isSellable()) {
-                        result.add(item);
+                        result.computeIfAbsent(item.getMaterial(), k -> new ArrayList<>()).add(item);
                         for (ShopItem variant : item.getVariants()) {
-                            if (variant.isSellable()) result.add(variant);
+                            if (variant.isSellable()) {
+                                result.computeIfAbsent(variant.getMaterial(), k -> new ArrayList<>()).add(variant);
+                            }
                         }
                     }
                 }
             }
         }
-        cached = Collections.unmodifiableList(result);
-        sellableCache = cached;
+        cached = Collections.unmodifiableMap(result);
+        sellableByMaterial = cached;
         return cached;
     }
 

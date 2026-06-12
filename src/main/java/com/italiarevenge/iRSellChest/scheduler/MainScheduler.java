@@ -62,12 +62,16 @@ public class MainScheduler {
                 Logger.debug("Tried to process chest " + chest.getId() + " but is in unloaded chunk, skipping...");
                 return;
             }
-            OfflinePlayer owner = Bukkit.getOfflinePlayer((UUID) chest.getOwner());
-            if (this.onlineOwner && !owner.isOnline()) {
+
+            UUID ownerUUID = chest.getOwner();
+            // getPlayer() returns the live Player without any disk I/O; getOfflinePlayer() can hit disk
+            Player onlinePlayer = Bukkit.getPlayer(ownerUUID);
+
+            if (this.onlineOwner && onlinePlayer == null) {
                 Logger.debug("Owner from chest " + chest.getId() + " is not online, skipping...");
                 return;
             }
-            if (this.afkDetection && this.plugin.getAFKManager().isAFK(owner.getUniqueId())) {
+            if (this.afkDetection && this.plugin.getAFKManager().isAFK(ownerUUID)) {
                 Logger.debug("Owner from chest " + chest.getId() + " is afk, skipping...");
                 return;
             }
@@ -76,13 +80,14 @@ public class MainScheduler {
                     (org.bukkit.block.Chest) chest.getLocation().getLeftLocation().toLoc().getBlock().getState();
             if (block.getInventory().isEmpty()) return;
 
-            ItemStack[] items = block.getInventory().getContents();
+            // Clone before getSellValue mutates the array in-place, avoiding a second getContents() call
+            ItemStack[] original = block.getInventory().getContents();
+            ItemStack[] items = original.clone();
             double total = IRShopHook.getSellValue(items);
 
             if (total <= 0) return;
 
             int removed = 0;
-            ItemStack[] original = block.getInventory().getContents();
             for (int i = 0; i < items.length; i++) {
                 if (items[i] == null && original[i] != null && !original[i].getType().isAir()) {
                     removed += original[i].getAmount();
@@ -91,8 +96,7 @@ public class MainScheduler {
 
             double effectiveMultiplier = UpgradeManager.multiplierUpgrades ? chest.getMultiplier() : 1.0;
 
-            if (owner.isOnline()) {
-                Player onlinePlayer = (Player) owner;
+            if (onlinePlayer != null) {
                 if (onlinePlayer.hasPermission("irshop.sell.2")) {
                     effectiveMultiplier += 1.0;
                 } else if (onlinePlayer.hasPermission("irshop.sell.1.5")) {
@@ -101,16 +105,19 @@ public class MainScheduler {
                     effectiveMultiplier += 0.25;
                 }
             } else {
-                effectiveMultiplier += IRShopHook.getPermissionBonus(owner) / 2.0;
+                // Only reach here when onlineOwner=false; create OfflinePlayer once
+                OfflinePlayer offlineOwner = Bukkit.getOfflinePlayer(ownerUUID);
+                effectiveMultiplier += IRShopHook.getPermissionBonus(offlineOwner) / 2.0;
             }
 
             total *= effectiveMultiplier;
 
-            // update inventory (remove sold items)
             block.getInventory().setContents(items);
 
             chest.addItemsSold(removed);
             chest.addIncome(total);
+
+            OfflinePlayer owner = onlinePlayer != null ? onlinePlayer : Bukkit.getOfflinePlayer(ownerUUID);
             IRShopHook.deposit(owner, total);
 
             this.handleLogs(chest, owner, total, removed);

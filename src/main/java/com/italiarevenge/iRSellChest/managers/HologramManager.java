@@ -7,6 +7,8 @@
 package com.italiarevenge.iRSellChest.managers;
 
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
 import com.italiarevenge.iRSellChest.AutoSellChests;
 import com.italiarevenge.iRSellChest.files.Config;
 import com.italiarevenge.iRSellChest.managers.HologramProvider;
@@ -76,7 +78,9 @@ public class HologramManager {
             e.printStackTrace();
         }
         this.plugin.runTaskAsyncTimer(() -> {
-            for (Chest c : this.plugin.getManager().getLoadedChests().values()) {
+            // Snapshot avoids ConcurrentModificationException when the main thread adds/removes chests
+            List<Chest> snapshot = new ArrayList<>(this.plugin.getManager().getLoadedChests().values());
+            for (Chest c : snapshot) {
                 if (!c.isLoaded() || !c.isHologram()) continue;
                 this.provider.tickHologram(c, this.getNextInterval(c));
             }

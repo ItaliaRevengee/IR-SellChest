@@ -71,9 +71,53 @@ public class ChestManager {
     private final Map<String, Integer> maxChests = new LinkedHashMap<String, Integer>();
     private Map<ChestLocation, Chest> loadedChests = new HashMap<ChestLocation, Chest>();
     private Map<UUID, ArrayList<Chest>> loadedChestsByPlayer = new HashMap<UUID, ArrayList<Chest>>();
+    // O(1) lookup indices — maintained alongside loadedChests
+    private final Map<String, Chest> locationIndex = new HashMap<>();       // "world:x:y:z" -> Chest
+    private final Map<String, List<Chest>> chestsByChunk = new HashMap<>(); // "world:cx:cz" -> List<Chest>
+    private final Map<Integer, Chest> chestsById = new HashMap<>();         // id -> Chest
 
     public ChestManager(AutoSellChests plugin) {
         this.plugin = plugin;
+    }
+
+    private static String chunkKey(com.italiarevenge.iRSellChest.objects.Location loc) {
+        return loc.world + ":" + (loc.x >> 4) + ":" + (loc.z >> 4);
+    }
+
+    private static String chunkKey(ChunkLoc loc) {
+        return loc.world + ":" + loc.x1 + ":" + loc.z1;
+    }
+
+    private void addToIndices(Chest chest) {
+        com.italiarevenge.iRSellChest.objects.Location left = chest.getLocation().getLeftLocation();
+        locationIndex.put(left.toString(), chest);
+        chestsByChunk.computeIfAbsent(chunkKey(left), k -> new ArrayList<>()).add(chest);
+        chestsById.put(chest.getId(), chest);
+        if (chest.getLocation().isDoubleChest()) {
+            com.italiarevenge.iRSellChest.objects.Location right = chest.getLocation().getRightLocation();
+            locationIndex.put(right.toString(), chest);
+            String rightChunk = chunkKey(right);
+            if (!rightChunk.equals(chunkKey(left))) {
+                chestsByChunk.computeIfAbsent(rightChunk, k -> new ArrayList<>()).add(chest);
+            }
+        }
+    }
+
+    private void removeFromIndices(Chest chest) {
+        com.italiarevenge.iRSellChest.objects.Location left = chest.getLocation().getLeftLocation();
+        locationIndex.remove(left.toString());
+        List<Chest> leftList = chestsByChunk.get(chunkKey(left));
+        if (leftList != null) leftList.remove(chest);
+        if (chest.getLocation().isDoubleChest()) {
+            com.italiarevenge.iRSellChest.objects.Location right = chest.getLocation().getRightLocation();
+            locationIndex.remove(right.toString());
+            String rightChunk = chunkKey(right);
+            if (!rightChunk.equals(chunkKey(left))) {
+                List<Chest> rightList = chestsByChunk.get(rightChunk);
+                if (rightList != null) rightList.remove(chest);
+            }
+        }
+        chestsById.remove(chest.getId());
     }
 
     public void load() {
@@ -113,7 +157,7 @@ public class ChestManager {
     }
 
     public Chest getChestByLocation(Location loc) {
-        return this.loadedChests.get(new ChestLocation(loc));
+        return this.locationIndex.get(loc.getWorld().getName() + ":" + loc.getBlockX() + ":" + loc.getBlockY() + ":" + loc.getBlockZ());
     }
 
     public void updateChestInterval(Chest chest, int newIntervalID) {
@@ -121,18 +165,18 @@ public class ChestManager {
     }
 
     public void loadChests(ChunkLoc chunkLoc) {
-        for (ChestLocation location : this.loadedChests.keySet()) {
-            if (!chunkLoc.contains(location)) continue;
-            Chest chest = this.loadedChests.get(location);
+        List<Chest> inChunk = this.chestsByChunk.get(chunkKey(chunkLoc));
+        if (inChunk == null || inChunk.isEmpty()) return;
+        for (Chest chest : inChunk) {
             chest.setLoaded(true);
             this.plugin.getHologramManager().loadHologram(chest);
         }
     }
 
     public void unloadChests(ChunkLoc chunkLoc) {
-        for (ChestLocation location : this.loadedChests.keySet()) {
-            if (!chunkLoc.contains(location)) continue;
-            Chest chest = this.loadedChests.get(location);
+        List<Chest> inChunk = this.chestsByChunk.get(chunkKey(chunkLoc));
+        if (inChunk == null || inChunk.isEmpty()) return;
+        for (Chest chest : inChunk) {
             chest.setLoaded(false);
         }
     }
@@ -169,11 +213,7 @@ public class ChestManager {
     }
 
     public Chest getChestByID(int id) {
-        for (Chest chest : this.loadedChests.values()) {
-            if (chest.getId() != id) continue;
-            return chest;
-        }
-        return null;
+        return this.chestsById.get(id);
     }
 
     private void loadChests() {
@@ -181,10 +221,10 @@ public class ChestManager {
         int i = 0;
         for (Chest chest : this.plugin.getDatabase().getAllChests()) {
             this.loadedChests.put(chest.getLocation(), chest);
+            this.addToIndices(chest);
             if (this.loadedChestsByPlayer.containsKey(chest.getOwner())) {
-                List chests = this.loadedChestsByPlayer.get(chest.getOwner());
+                List<Chest> chests = this.loadedChestsByPlayer.get(chest.getOwner());
                 chests.add(chest);
-                this.loadedChestsByPlayer.put(chest.getOwner(), this.loadedChestsByPlayer.get(chest.getOwner()));
             } else {
                 this.loadedChestsByPlayer.put(chest.getOwner(), new ArrayList<Chest>(Collections.singletonList(chest)));
             }
@@ -195,10 +235,19 @@ public class ChestManager {
 
     public void addChest(Location loc, @Nullable Chest original, ChestSettings settings, Player p) {
         if (original != null) {
+            // Expanding a single chest into a double chest: add the new side to indices
+            com.italiarevenge.iRSellChest.objects.Location newSide = new com.italiarevenge.iRSellChest.objects.Location(loc);
             original.getLocation().addLocation(loc);
             this.plugin.getDatabase().setChest(original);
             this.loadedChests.remove(original.getLocation());
             this.loadedChests.put(original.getLocation(), original);
+            // Index the new right-side location
+            this.locationIndex.put(newSide.toString(), original);
+            String newChunk = chunkKey(newSide);
+            String leftChunk = chunkKey(original.getLocation().getLeftLocation());
+            if (!newChunk.equals(leftChunk)) {
+                this.chestsByChunk.computeIfAbsent(newChunk, k -> new ArrayList<>()).add(original);
+            }
             this.plugin.getHologramManager().updateHologramLocation(original);
         } else {
             ChestLocation location = new ChestLocation(loc);
@@ -208,6 +257,7 @@ public class ChestManager {
             this.scheduler.queueChest(original);
             this.plugin.getHologramManager().loadHologram(original);
             this.loadedChests.put(location, original);
+            this.addToIndices(original);
             if (this.loadedChestsByPlayer.containsKey(p.getUniqueId())) {
                 this.loadedChestsByPlayer.get(p.getUniqueId()).add(original);
             } else {
@@ -218,12 +268,25 @@ public class ChestManager {
     }
 
     public void removeChest(ChestLocation loc) {
-        Chest chest = this.loadedChests.get(loc);
+        Chest chest = this.locationIndex.get(loc.getLeftLocation().toString());
+        if (chest == null) return;
         if (chest.getLocation().isDoubleChest()) {
-            chest.getLocation().removeLocation(loc.getLeftLocation());
+            // Remove only the one side that was broken
+            com.italiarevenge.iRSellChest.objects.Location removedSide = loc.getLeftLocation();
+            this.locationIndex.remove(removedSide.toString());
+            String removedChunk = chunkKey(removedSide);
+            com.italiarevenge.iRSellChest.objects.Location keptSide = chest.getLocation().getLeftLocation().equals(removedSide)
+                    ? chest.getLocation().getRightLocation()
+                    : chest.getLocation().getLeftLocation();
+            if (!removedChunk.equals(chunkKey(keptSide))) {
+                List<Chest> list = this.chestsByChunk.get(removedChunk);
+                if (list != null) list.remove(chest);
+            }
+            chest.getLocation().removeLocation(removedSide);
             this.plugin.getDatabase().setChest(chest);
             this.plugin.getHologramManager().updateHologramLocation(chest);
         } else {
+            this.removeFromIndices(chest);
             this.scheduler.removeFromQueue(chest);
             this.plugin.getDatabase().removeChest(loc.toString());
             this.loadedChests.remove(loc);
@@ -238,6 +301,7 @@ public class ChestManager {
     }
 
     public void removeChest(Chest chest) {
+        this.removeFromIndices(chest);
         this.scheduler.removeFromQueue(chest);
         this.plugin.getDatabase().removeChest(chest.getLocation().toString());
         this.loadedChests.remove(chest.getLocation());
@@ -339,12 +403,11 @@ public class ChestManager {
             this.scheduler.stop();
         }
         this.saveChests();
-        if (!this.loadedChests.isEmpty()) {
-            this.loadedChests.clear();
-        }
-        if (!this.loadedChestsByPlayer.isEmpty()) {
-            this.loadedChestsByPlayer.clear();
-        }
+        this.loadedChests.clear();
+        this.loadedChestsByPlayer.clear();
+        this.locationIndex.clear();
+        this.chestsByChunk.clear();
+        this.chestsById.clear();
     }
 
     public int getOwnedChests(Player p) {
